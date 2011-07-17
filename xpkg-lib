@@ -34,7 +34,7 @@ instalar_pkg() {
 	tar -xvf ${file} .PKGINFO
 	source .PKGINFO
 
-	[[ "$ARCH" = "all" && "$ARCH" = "$(arch)" ]] || die "Architecture checking failed"
+	[[ "$ARCH" = "all" && "$ARCH" = "$(arch)" ]] || die "Architecture checking has failed"
 
 	for i in ${depend[@]}; do
 		check_installed "$i" || return 1
