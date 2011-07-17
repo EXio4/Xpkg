@@ -1,0 +1,130 @@
+#!/bin/bash
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
+
+
+TMP_F="/tmp/xpkg/"
+ROOT_D="/var/xpkg/"
+RT="/"
+## ## ## ## ## ## ## ## ## ## ##
+
+instalar_pkg() {
+
+	file="$1"
+	[[ -z $file ]] && return 1
+	[[ "$file" != *".x4" ]] && return 2
+	[[ -r $file ]] && tfile="$(file $file 2>&1)"
+
+	cd ${TMP_F}
+
+	rm -f .PKGINFO
+	tar -xvf ${file} .PKGINFO
+	source .PKGINFO
+
+	for i in ${depend[@]}; do
+		check_installed "$i" || return 1
+	done
+
+	mkdir -p "${TMP_F}/pkg"
+
+	cd "${TMP_F}/pkg"
+
+	tar -xvf ${file} "${TMP_F}/pkg"
+
+	cd "${TMP_F}/pkg"
+
+	mkdir -p "${ROOT_D}/x4/${name}/"
+
+	cp "${TMP_F}/.PKGINFO" "${ROOT_D}/x4/${name}/info"
+	find > ${ROOT_D}/x4/${name}/find.lst
+
+	rm -f ${TMP_F}/pkg/.* 2>/dev/null
+	cp -r ${TMP_F}/pkg/* $RT ## Mejorar..
+
+}
+
+
+check_installed() {
+
+	[[ -z "$1" ]] && return 2
+	[[ -r ${ROOT_D}/x4/$1/info ]] && source ${ROOT_D}/x4/$1/info
+
+	if [[ "$name" ]]; then
+		return 0
+	else
+		return 1
+	fi
+
+}
+
+
+list_files() {
+
+	local file i
+	[[ -z $1 ]] && return 2
+	[[ -r "${ROOT_D}/x4/$1/find.lst" ]] && file="$(cat ${ROOT_D}/x4/$1/find.lst)"
+	IFS=$'\n'
+	[[ -z $file ]] && return 1
+	for i in $file; do
+		echo "$1 $i"
+	done
+	unset IFS
+
+}
+
+remove_package() {
+
+	local file i
+	check_installed $1 || return $?
+	[[ -r "${ROOT_D}/x4/$1/find.lst" ]] && file="$(cat ${ROOT_D}/x4/$1/find.lst)"
+	IFS=$'\n'
+	[[ -z $file ]] && return 1
+	for i in $file; do
+		rm "/$i"
+	done
+	rm "${ROOT_D}/x4/$1/*"
+	unset IFS
+
+}
+
+list_packages() {
+
+	local filelist i
+	mkdir -p "${ROOT_D}/x4"
+	filelist=$(ls "${ROOT_D}/x4/")
+	IFS=$'\n'
+	for i in $filelist; do
+		echo "$i"
+	done
+}
+
+
+show_info() {
+
+	[[ -r ${ROOT_D}/x4/$1/info ]] && source ${ROOT_D}/x4/$1/info
+
+	echo "Package name: ${name}"
+	echo "Version: ${version}"
+	[[ "$dev" ]] && echo "Mainteiner: ${dev}"
+	[[ "$url" ]] && echo "URL: $url"
+	echo "Size: ${size}"
+	[[ "$licence" ]] && echo "Licence: $licence"
+	echo -n "Depends: "
+	for i in ${depends[@]}; do
+		echo -n " $i "
+	done
+	[[ -z "${depends[@]}" ]] && echo "None" || echo
+	echo "Description: $desc"
+}

@@ -1,0 +1,241 @@
+#!/bin/bash
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
+
+
+ESC="\033"
+R="${ESC}[31m${esc}" ##[1m"
+G="${ESC}[32m${esc}" ##[1m"
+Y="${ESC}[33m${esc}" ##[1m"
+RS="${ESC}[0m"
+
+
+
+msg() {
+	##
+	echo -e "${Y}[ > ]${G} $@ ${RS}"
+
+}
+
+error() {
+	##
+	echo -e "${Y}[ E ] ${R} $@ ${RS}"
+
+}
+
+
+warn() {
+	##
+	echo -e "${G}[ W ] ${Y} $@ ${RS}"
+
+}
+
+die() {
+	##
+	error "$@"
+	exit 1
+
+}
+
+
+fexist() {
+	declare -f $@ &>/dev/null
+}
+
+
+pkginfo() {
+
+echo "$@" >> $PKGINFO
+
+}
+
+make_pkg() {
+	local i result XBUILD TMP_DIR files
+	XBUILD="$PWD/XBUILD"
+	TMP_DIR="$PWD/tmp/"
+	while (( $# )); do
+		case $1 in
+			-x)
+				shift
+				XBUILD="$1"
+			;;
+			-t)
+				shift
+				TMP_DIR="$1"
+			;;
+			*) return 3; ;; ## Agregar
+		esac
+		shift
+	done
+	[[ ! -x $XBUILD ]] && return 1
+	[[ ! -d $TMP_DIR ]] && return 2
+	source $XBUILD
+
+	cd $TMP_DIR
+
+	## ## ## ## ## ## ## ## ## ## ## ##
+	## ## ## ## ## ## ## ## ## ## ## ##
+	## ## ## ## ## ## ## ## ## ## ## ##
+	for i in ${DEPENDS[@]}; do
+		xpkg check $i &>/dev/null
+		result=$?
+		if [[ "$result" != 0 ]]; then
+			die "Package $i no installed"
+		fi
+	done
+
+	xpkg check $PKG_NAME &>/dev/null
+	result=$?
+	if [[ "$result" = 0 ]]; then
+		warn "Package $PKG_NAME installed.. [Reinstaling]"
+	fi
+
+	## ## ## ## ## ## ## ## ## ##
+	## ## ## ## ## ## ## ## ## ##
+
+	unset i
+	mkdir -p "$TMP_DIR/src"
+	cd "$TMP_DIR/src"
+	for i in ${!FILES[@]}; do
+		unset files
+		unset files2
+		files="${FILES[$i]}"
+		files2="$(basename $files)"
+		msg "Downloading ${files}.."
+		wget -O ${files2} "$files"
+		## Download file.. and check md5 [if this 'exist']
+		md5_d="$(md5sum ${files2} | cut -d" " -f1)"
+		[[ -z "${MD5SUM[$i]}" ]] && continue
+		if [[ "$md5_d" != "${MD5SUM[$i]}" ]]; then
+			die "MD5 CHECK FAILED"
+		fi
+		case "$files2" in
+			*".tar.gz")
+				tar -xf $files2
+			;;
+			*".tar.xz")
+				tar -xJf $files2
+			;;
+			*".tar.bz2")
+				tar -xjf $files2
+			;;
+			*".tar")
+				tar -xf $files2
+			;;
+			*".xz")
+				xz -d $files2
+			;;
+			*".gz")
+				gzip -d $files2
+			;;
+			*) true; ;;
+		esac
+		## ## ## ## ## ## ## ## ## ## ## ## ## ##
+	done
+
+	## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
+
+	SRC="${TMP_DIR}/src"
+	PKG="${TMP_DIR}/pkg"
+	mkdir -p $SRC $PKG
+	if fexist build; then
+		build
+	fi
+	if fexist package; then
+		package
+	fi
+
+	for i in ${ST[@]}; do
+		case "$i" in
+			'!delete')
+				delete_dir="no"
+			;;
+			*)
+				true;
+			;;
+		esac
+	done
+
+	if [[ "$delete_dir" != "no" ]]; then
+			cd "$TMP_DIR/pkg"
+	                find . -depth -type d -empty -delete
+			cd "$OLDPWD"
+	fi
+	[[ -z $TYPE ]] && TYPE="xz"
+	size="$(echo $(du -shc $TMP_DIR/pkg | tail -n 1 | cut -d"t" -f1))"
+	PKGINFO="$TMP_DIR/pkg/.PKGINFO"
+	rm -f $PKGINFO
+	touch $PKGINFO
+	pkginfo "## Created by MakeXpkg"
+	pkginfo "name='$PKG_NAME'"
+	pkginfo "version='$PKG_VERSION'"
+	[[ $DEV ]] && pkginfo "dev='$DEV'"
+	[[ $URL ]] && pkginfo "url='$URL'"
+	pkginfo "desc='$PKG_DESC'"
+	pkginfo "size=${size}"
+	[[ $LICENCE ]] && pkginfo "licence='$LICENCE'"
+	pkginfo 'depend=()'
+	for i in ${DEPEND[@]}; do
+		pkginfo "depend+=(\"$i\")"
+	done
+	ocult="$ocult .PKGINFO "
+	cd "$TMP_DIR/pkg"
+	tar -cf - $ocult * | case "$TYPE" in
+		bzip2) bzip2 -c -f ;;
+		gzip) gzip -c -f -n ;;
+		xz) xz -c -z - ;;
+		*) cat ;;
+	esac > "${TMP_DIR}/${PKG_NAME}_${PKG_VERSION}.x4"
+}
+
+show_help() {
+
+msg "${app} help:"
+msg "	Parameters: "
+msg "		-t"
+msg "		Set temporal directory ."
+msg "			DEFAULT:"
+msg "			\$PWD/tmp"
+msg "		-x"
+msg "		Set XBUILD file"
+msg "			DEFAULT:"
+msg "			\$PWD/XBUILD"
+exit 0
+}
+
+
+#if [[ -z $1 ]]; then
+#	error "Read help ... please!"
+#	exit 1
+#fi
+
+case "$1" in
+	-h|--help|-help|--h)
+		show_help
+	;;
+	*)
+		make_pkg $@
+		result=$?
+		if [[ "$result" = 1 ]]; then
+			die "XBUILD no exist.."
+		elif [[ "$result" = 2 ]]; then
+			die "Temporal directory no exist."
+		elif [[ "$result" = "3" ]]; then
+			die "You need read help!"
+		else
+			msg "Finished..."
+		fi
+	;;
+esac
