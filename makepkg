@@ -185,6 +185,7 @@ make_pkg() {
 	[[ $URL ]] && pkginfo "url='$URL'"
 	pkginfo "desc='$PKG_DESC'"
 	pkginfo "size=${size}"
+	[[ -z $ARCH ]] && pkginfo "arch=all" || pkginfo "arch=$ARCH"
 	[[ $LICENCE ]] && pkginfo "licence='$LICENCE'"
 	pkginfo 'depend=()'
 	for i in ${DEPEND[@]}; do
