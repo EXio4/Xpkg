@@ -22,7 +22,7 @@ RT="/"
 
 
 instalar_pkg() {
-
+##set -x
 	file="$1"
 	[[ -z $file ]] && return 1
 	[[ "$file" != *".x4" ]] && return 2
@@ -31,38 +31,53 @@ instalar_pkg() {
 	cd ${TMP_F}
 
 	rm -f .PKGINFO
-	tar -xvf ${file} .PKGINFO
+	tar -xf ${file} .PKGINFO
 	source .PKGINFO
 
-	[[ "$ARCH" = "all" && "$ARCH" = "$(arch)" ]] || die "Architecture checking has failed"
+	[[ "$arch" = "all" || "$arch" = "$(arch)" ]] || die "Architecture checking has failed"
 
 	for i in ${depend[@]}; do
 		check_installed "$i" || return 1
 	done
 
-	mkdir -p "${TMP_F}/pkg"
+	mkdir -p "${TMP_F}pkg"
 
-	cd "${TMP_F}/pkg"
+	cd "${TMP_F}pkg"
 
-	tar -xvf ${file} "${TMP_F}/pkg"
+	tar -xf ${file}
 
-	cd "${TMP_F}/pkg"
+	cd "${TMP_F}pkg"
 
 	mkdir -p "${ROOT_D}/x4/${name}/"
 
 	cp "${TMP_F}/.PKGINFO" "${ROOT_D}/x4/${name}/info"
-	find > ${ROOT_D}/x4/${name}/find.lst
+	find | grep -v '^.$' | grep -v "^./.PKGINFO$" > ${ROOT_D}/x4/${name}/find.lst
 
 	rm -f ${TMP_F}/pkg/.* 2>/dev/null
-	cp -r ${TMP_F}/pkg/* $RT ## Mejorar..
-
+	cd ${TMP_F}/pkg
+	FIND=$(find)
+	IFS=$'\n'
+	for i in $FIND; do
+		[[ "$i" = "." ]] && continue
+		if [[ -d "$i" ]]; then
+			mkdir -p $i
+		else
+			if [[ -r "/$i" ]]; then
+				warn "File $i exist in filesystem.."
+			else
+				cp $i /$i
+			fi
+		fi
+	done
+##	cp -r ${TMP_F}/pkg/* $RT ## Mejorar..
+##set +x
 }
 
 
 check_installed() {
 
 	[[ -z "$1" ]] && return 2
-	[[ -r ${ROOT_D}/x4/$1/info ]] && source ${ROOT_D}/x4/$1/info
+	[[ -r ${ROOT_D}x4/$1/info ]] && source ${ROOT_D}x4/$1/info
 
 	if [[ "$name" ]]; then
 		return 0
@@ -81,7 +96,7 @@ list_files() {
 	IFS=$'\n'
 	[[ -z $file ]] && return 1
 	for i in $file; do
-		echo "$1 $i"
+		msg "$1 $i"
 	done
 	unset IFS
 
@@ -95,9 +110,16 @@ remove_package() {
 	IFS=$'\n'
 	[[ -z $file ]] && return 1
 	for i in $file; do
-		rm "/$i"
+		if [[ -d "/$i" ]]; then
+			rmdir "/$i" 2>/dev/null
+		elif [[ -r "/$i" ]]; then
+			rm "/$i" 2>/dev/null
+		else
+			msg "file /${i} no exist"
+		fi
+
 	done
-	rm "${ROOT_D}/x4/$1/*"
+	rm -rf "${ROOT_D}/x4/$1/"
 	unset IFS
 
 }
@@ -118,16 +140,16 @@ show_info() {
 
 	[[ -r ${ROOT_D}/x4/$1/info ]] && source ${ROOT_D}/x4/$1/info
 
-	echo "Package name: ${name}"
-	echo "Version: ${version}"
-	[[ "$dev" ]] && echo "Mainteiner: ${dev}"
-	[[ "$url" ]] && echo "URL: $url"
-	echo "Size: ${size}"
-	[[ "$licence" ]] && echo "Licence: $licence"
+	msg "Package name: ${name}"
+	msg "Version: ${version}"
+	[[ "$dev" ]] && msg "Mainteiner: ${dev}"
+	[[ "$url" ]] && msg "URL: $url"
+	msg "Size: ${size}"
+	[[ "$licence" ]] && msg "Licence: $licence"
 	echo -n "Depends: "
 	for i in ${depends[@]}; do
 		echo -n " $i "
 	done
-	[[ -z "${depends[@]}" ]] && echo "None" || echo
-	echo "Description: $desc"
+	[[ -z "${depends[@]}" ]] && msg "None" || echo
+	msg "Description: $desc"
 }

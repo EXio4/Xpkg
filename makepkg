@@ -221,10 +221,12 @@ exit 0
 #	error "Read help ... please!"
 #	exit 1
 #fi
-
 case "$1" in
 	-h|--help|-help|--h)
 		show_help
+	;;
+	-s)
+		true
 	;;
 	*)
 		make_pkg $@

@@ -1,0 +1,115 @@
+#!/bin/bash
+
+app_dir="$(readlink $0)"
+[[ -z $app_dir ]] && app_dir="$0"
+app_dir="$(dirname $app_dir)"
+
+packlist=()
+
+
+source $app_dir/xpkg-lib
+source $app_dir/makepkg -s
+
+while (( $# )); do
+	case $1 in
+		--remove|-r|-R|remove)
+			option="remove"
+		;;
+		--install|-S|-i|install)
+			option="install"
+		;;
+		--list|-Ql|list)
+			option="list"
+		;;
+		--check|check|-Qc)
+			option="check"
+		;;
+		--search|search|-Qs)
+			option="search"
+		;;
+		--help|help|-h)
+			option="help"
+		;;
+		-*)
+			echo "Invalid option" && exit
+		;;
+		*)
+			packlist+=("$1")
+		;;
+	esac
+	shift
+done
+
+
+chk_packs() {
+
+if [[ -z ${packlist[@]} ]]; then
+	echo "No packages.."
+	exit 1
+fi
+
+}
+
+show_help() {
+
+echo "Basic help of xpkg:"
+echo "		[install|-i|-S]"
+echo "			Installing packages"
+echo "		[remove|-R|-r]"
+echo "			Remove packages"
+echo "		[list|-Ql]"
+echo "			List files in X package"
+echo "		[search|-Qs]"
+echo "			Search in installed packages"
+exit 0
+}
+
+
+case $option in
+	remove)
+		chk_packs
+		for i in ${packlist[@]}; do
+			remove_package "$i"
+		done
+	;;
+	install)
+		chk_packs
+		for i in ${packlist[@]}; do
+			instalar_pkg "$i"
+		done
+	;;
+	list)
+		if [[ "${packlist[@]}" ]]; then
+			for i in ${packlist[@]}; do
+				list_files "$i"
+			done
+		else
+			ls="$(list_packages)"
+			for i in $ls; do
+				list_files "$i"
+			done
+		fi
+	;;
+	check)
+		check_installed "${packlist[@]}"
+		exit $?
+	;;
+	info)
+		for i in "${packlist[@]}"; do
+			show_info "$i"
+		done
+	;;
+	search)
+		if [[ "${packlist[@]}" ]]; then
+			list_packages | grep "${packlist[@]}"
+		else
+			list_packages
+		fi
+	;;
+	help)
+		show_help
+	;;
+	*)
+		echo "No option.. please read help $(basename $0) -h" && exit 1
+	;;
+esac
