@@ -115,7 +115,7 @@ remove_package() {
 		elif [[ -r "/$i" ]]; then
 			rm "/$i" 2>/dev/null
 		else
-			msg "file /${i} no exist"
+			msg "file /${i} doesn't exist"
 		fi
 
 	done
