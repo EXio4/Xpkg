@@ -1,3 +1,46 @@
 Xpkg 0.4
 
-Version reescrita!
+
+
+Gestor de paquetes basico escrito en bash. Basado en la idea 'Arch', de un XBUILD, que genera un paquete instalable por el gestor.
+
+  makepkg
+
+    Genera paquetes instalables por xpkg
+
+  xpkg-lib
+  
+    Libreria para manejar paquetes
+
+  xpkg
+
+    Interfaz de xpkg
+
+
+Ejemplo de xbuild:
+
+
+
+## Demo XBUILD
+
+PKG_NAME="Test"
+PKG_VERSION="1.0"
+
+DEV="Nobody"
+
+PKG_DESC="Test package por xpkg"
+
+DEPENDS=()
+
+
+build() {
+
+msg "Build msg"
+
+}
+
+package() {
+
+msg "End msg"
+
+}
